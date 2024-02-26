@@ -54,7 +54,7 @@ void parameters(int argc, char **argv) {
   /* Read command-line arguments */
   srand(time_seed());  /* Randomize */
 
-  if (argc == 3) {
+  if (argc == 4) {
     seed = atoi(argv[2]);
     srand(seed);
     printf("Random seed = %i\n", seed);
@@ -86,8 +86,27 @@ void initialize_inputs() {
     for (row = 0; row < N; row++) {
       A[row][col] = (float)rand() / 32768.0;
     }
+
     B[col] = (float)rand() / 32768.0;
     X[col] = 0.0;
+
+    /*
+    A[0][0] = 1;
+    A[0][1] = 1;
+    A[0][2] = -1;
+
+    A[1][0] = 2;
+    A[1][1] = -1;
+    A[1][2] = 1;
+
+    A[2][0] = -1;
+    A[2][1] = 2;
+    A[2][2] = 2;
+
+    B[0] = -2;
+    B[1] = 5;
+    B[2] = 1;
+    */
   }
 
 }
@@ -208,7 +227,7 @@ struct thread_info{
         threads_info[i].chunkSize = threadNum;
         threads_info[i].normNum = norm;
         threads_info[i].id = i;
-        printf("Creating thread %d for norm %d\n", i, norm);
+        //printf("Creating thread %d for norm %d\n", i, norm);
         pthread_create(&threads[i], NULL, gauss_elim_paralell, (void *) &threads_info[i]);
       } 
 
@@ -262,9 +281,10 @@ void* gauss_elim_paralell(void *args)
       //printf("Thread %d: Working on row %d for norm %d. My next row is row %d.\n", my_info->id, row, norm, row+chunk);
       for (col = norm; col < N; col++) 
       {
-        printf("Thread %d: Working on row %d col %d for norm %d.\n", my_info->id, row, col, norm);
+        //printf("Thread %d: Working on row %d col %d for norm %d.\n", my_info->id, row, col, norm);
         A[row][col] -= A[norm][col] * multiplier;       
       }
+      //printf("Thread %d: Writing %f to B row %d for norm %d with a multiplier of %f.\n", my_info->id, (B[row] - (B[norm] * multiplier)), row, norm, multiplier);
       B[row] -= B[norm] * multiplier;
     }
     else
