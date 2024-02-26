@@ -18,7 +18,8 @@
 
 /* Program Parameters */
 #define MAXN 2000  /* Max value of N */
-#define THREADNUM 2
+
+int threadNum;
 int N;  /* Matrix size */
 
 /* Matrices and vectors */
@@ -64,6 +65,7 @@ void parameters(int argc, char **argv) {
       printf("N = %i is out of range.\n", N);
       exit(0);
     }
+    threadNum = atoi(argv[3]);
   }
   else {
     printf("Usage: %s <matrix_dimension> [random seed]\n",
@@ -181,9 +183,8 @@ int main(int argc, char **argv) {
 
 struct thread_info{
   int id;
-  int startNum;
-  int numRows;
   int normNum;
+  int chunkSize;
 };
 
 /****** You will replace this routine with your own parallel version *******/
@@ -191,62 +192,39 @@ struct thread_info{
  * defined in the beginning of this code.  X[] is initialized to zeros.
  */
   void gauss() {
-    int norm, row, col;  /* Normalization row, and zeroing
-			* element row and col */
-  float multiplier;
+    int norm;
 
-  printf("Computing Parallel with pThreads.\n\n");
+    printf("Computing Parallel with pThreads.\n\n");
 
-  for (norm = 0; norm < N - 1; norm++) {
+    for (norm = 0; norm < N - 1; norm++) {
 
-    //Get number of rows for this norm
-    int rowStart = norm + 1;
-    int rowsForThisNorm = N - rowStart;
-    
-    //Figure out how many rows each thread will run
-    struct thread_info threads_info[THREADNUM];
-    int threadRows[THREADNUM] = {0};
-    int threadStarts[THREADNUM] = {rowStart};
+      struct thread_info threads_info[threadNum];
 
-    for(int i = 0; i < rowsForThisNorm; i++)
-    {
-      threadRows[i % THREADNUM] += 1;
+      pthread_t threads[threadNum];
+
+
+      for(int i = 0; i < threadNum; i++)
+      {
+        threads_info[i].chunkSize = threadNum;
+        threads_info[i].normNum = norm;
+        threads_info[i].id = i;
+        printf("Creating thread %d for norm %d\n", i, norm);
+        pthread_create(&threads[i], NULL, gauss_elim_paralell, (void *) &threads_info[i]);
+      } 
+
+      for(int i = 0; i < threadNum; i++)
+      {
+        pthread_join(threads[i], NULL);
+      }
+
     }
-
-    for(int i = 1; i < THREADNUM; i++)
-    {
-      threadStarts[i] = threadRows[i-1] + threadStarts[i-1];
-    }
-
-    for(int i = 0; i < THREADNUM; i++)
-    {
-      threads_info[i].startNum = threadStarts[i];
-      threads_info[i].numRows = threadRows[i];
-
-      //printf("I am thread %d. I start at row %d and will run for %d rows.\n", i, threads_info[i].startNum, threads_info[i].numRows);
-    }
-
-    pthread_t threads[THREADNUM];
-
-    for(int i = 0; i < THREADNUM; i++)
-    {
-      threads_info[i].normNum = norm;
-      threads_info[i].id = i;
-      pthread_create(&threads[i], NULL, gauss_elim_paralell, (void *) &threads_info[i]);
-    } 
-
-    for(int i = 0; i < THREADNUM; i++)
-    {
-      pthread_join(threads[i], NULL);
-    }
-
-  }
 
   /* (Diagonal elements are not normalized to 1.  This is treated in back
    * substitution.)
    */
 
   /* Back substitution */
+  int row, col;
   for (row = N - 1; row >= 0; row--) {
     X[row] = B[row];
     for (col = N-1; col > row; col--) {
@@ -265,19 +243,34 @@ void* gauss_elim_paralell(void *args)
   //print_inputs();
 
   int norm = my_info->normNum;
-  int row = my_info->startNum; 
+  int chunk = my_info->chunkSize;
+  int row = my_info->id + (norm + 1); 
   int col = 0;
   float multiplier = 0;
 
-  for (int i = 0; i < my_info->numRows; i++) 
-  {
-    multiplier = A[row+i][norm] / A[norm][norm];
+  int rows = ceil(N/threadNum);
 
-    //printf("Thread %d: The multiplier for row %d norm %d is %f\n", my_info->id, row+i, norm, multiplier);
-    for (col = norm; col < N; col++) 
+  if(rows == 0)
+    rows = 1;
+
+  for (row; row <= N; row += chunk) 
+  {
+    if(row < N)
     {
-      A[row+i][col] -= A[norm][col] * multiplier;       
+      multiplier = A[row][norm] / A[norm][norm];
+
+      //printf("Thread %d: Working on row %d for norm %d. My next row is row %d.\n", my_info->id, row, norm, row+chunk);
+      for (col = norm; col < N; col++) 
+      {
+        printf("Thread %d: Working on row %d col %d for norm %d.\n", my_info->id, row, col, norm);
+        A[row][col] -= A[norm][col] * multiplier;       
+      }
+      B[row] -= B[norm] * multiplier;
     }
-    B[row+i] -= B[norm] * multiplier;
+    else
+    {
+      break;
+    }
+
   }
 }
