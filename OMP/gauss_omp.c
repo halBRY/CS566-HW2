@@ -192,7 +192,7 @@ void gauss() {
   for (norm = 0; norm < N - 1; norm++) {
     #pragma omp parallel
     {
-      #pragma omp for 
+      #pragma omp for private(multiplier, row, col) schedule(runtime)
       for (row = norm + 1; row < N; row++) {
         multiplier = A[row][norm] / A[norm][norm];
         for (col = norm; col < N; col++) {
