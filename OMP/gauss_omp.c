@@ -19,6 +19,8 @@
 
 /* Program Parameters */
 #define MAXN 2000  /* Max value of N */
+
+int threadNum;
 int N;  /* Matrix size */
 
 /* Matrices and vectors */
@@ -51,7 +53,7 @@ void parameters(int argc, char **argv) {
   /* Read command-line arguments */
   srand(time_seed());  /* Randomize */
 
-  if (argc == 3) {
+  if (argc == 4) {
     seed = atoi(argv[2]);
     srand(seed);
     printf("Random seed = %i\n", seed);
@@ -62,6 +64,7 @@ void parameters(int argc, char **argv) {
       printf("N = %i is out of range.\n", N);
       exit(0);
     }
+    threadNum = atoi(argv[3]);
   }
   else {
     printf("Usage: %s <matrix_dimension> [random seed]\n",
@@ -190,9 +193,9 @@ void gauss() {
 
   /* Gaussian elimination */
   for (norm = 0; norm < N - 1; norm++) {
-    #pragma omp parallel
+    #pragma omp parallel num_threads(threadNum)
     {
-      #pragma omp for private(multiplier, row, col) schedule(runtime)
+      #pragma omp for private(multiplier, row, col) schedule(dynamic, N/threadNum)
       for (row = norm + 1; row < N; row++) {
         multiplier = A[row][norm] / A[norm][norm];
         for (col = norm; col < N; col++) {
